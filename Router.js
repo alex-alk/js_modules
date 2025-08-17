@@ -1,6 +1,7 @@
 export default class Router {
 
     constructor(routes, basePath = '') {
+        this.subscribers = []
         this.routes = routes
         this.basePath = basePath
         this.rootElem = document.querySelector('#app')
@@ -12,7 +13,7 @@ export default class Router {
     }
 
     // Remove base path prefix from full path to get route key
-    _stripBase(path) { // path = basepath + real path
+    stripBase(path) { // path = basepath + real path
         
         if (this.basePath && path.startsWith(this.basePath)) {
             const stripped = path.slice(this.basePath.length);
@@ -95,9 +96,21 @@ export default class Router {
         return notFound ? notFound.matchedRoute.component : null;
     }
 
+    notifyRouteChange(routePath) {
+        // pentru fiecare subscriber, nofity cu url ca parametru
+        for (const subscriber of this.subscribers) {
+            subscriber(routePath)
+        }
+    }
+
+    subscribeToRouteChange(functionObj) {
+        this.subscribers.push(functionObj)
+    }
+
     // Match current URL to route and render component
     route() {
-        const routePath = this._stripBase(location.pathname);
+        const routePath = this.stripBase(location.pathname);
+        this.notifyRouteChange(routePath)
         const match = this.findRoute(routePath, this.routes);
 
         let RouteComponent = null;

@@ -58,19 +58,6 @@ export default class Router {
 
         // matching everyting else
         for (const matchedRoute of routes) {
-            //const regex = this.pathToRegex(matchedRoute.path);
-            // if (regex.test(path)) {
-            //     if (matchedRoute.children) {
-            //         for (const matchedChildRoute of matchedRoute.children) {
-            //             const childRegex = this.pathToRegex(matchedChildRoute.path);
-            //             if (childRegex.test(path)) {
-            //                 return { matchedRoute, matchedChildRoute };
-            //             }
-            //         }
-            //     } else {
-            //         return { matchedRoute, matchedChildRoute: null };
-            //     }
-            // }
 
             if (matchedRoute.children) {
                 for (const matchedChildRoute of matchedRoute.children) {
@@ -97,7 +84,7 @@ export default class Router {
     }
 
     notifyRouteChange(routePath) {
-        // pentru fiecare subscriber, nofity cu url ca parametru
+        // for each subscriber, nofity with url as parameter
         for (const subscriber of this.subscribers) {
             subscriber(routePath)
         }
@@ -108,7 +95,7 @@ export default class Router {
     }
 
     // Match current URL to route and render component
-    route() {
+    async route() {
         const routePath = this.stripBase(location.pathname);
         this.notifyRouteChange(routePath)
         const match = this.findRoute(routePath, this.routes);
@@ -127,69 +114,57 @@ export default class Router {
             return;
         }
 
+        if (RouteComponent.constructor.name === 'AsyncFunction') {
+            RouteComponent = await RouteComponent();
+        }
+
         const mainLayoutPath = match.matchedRoute.path;
 
         if (this.currentMainLayoutPath !== mainLayoutPath) {
-            // re-render whole layout if main path has changed
-            const layoutEl = new RouteComponent().getElement();
+            // instanțiem layout
+            const layoutInstance = new RouteComponent();
+            const layoutEl = await layoutInstance.getElement();
+
             if (match.matchedChildRoute) {
-                
-                const Child = match.matchedChildRoute.component;
-                const childEl = new Child().getElement();
-                // ex: in AppLayout
+                let Child = match.matchedChildRoute.component;
+
+                if (Child.constructor.name === 'AsyncFunction') {
+                    Child = await Child();
+                }
+
+                const childInstance = new Child();
+                const childEl = await childInstance.getElement();
                 const parentRouterView = layoutEl.querySelector('router-view');
-                // ex: layout-main div
-                this.layoutContainer = parentRouterView.parentElement
-                
+                this.layoutContainer = parentRouterView.parentElement;
+
                 if (parentRouterView) {
-                    // replace router-view with child match component
                     this.layoutContainer.replaceChildren(childEl);
                 }
             }
 
             this.rootElem.replaceChildren(layoutEl);
-            this.currentMainLayoutPath = mainLayoutPath
+            this.currentMainLayoutPath = mainLayoutPath;
         } else {
-            // main route did not change, so a child must be changed
-
-            const childLayoutPath = match.matchedChildRoute.path;
-
-            if (childLayoutPath) {
-                if (this.currentChildLayoutPath !== childLayoutPath) {
-                    const Child = match.matchedChildRoute.component;
-                    const childEl = new Child().getElement();
-
-                    //if (this.routerViewChild) {
-                        this.layoutContainer.replaceChildren(childEl)
-                    // } else {
-                    //     this.layoutContainer.appendChild(childEl);
-                    // }
-                    this.currentChildLayoutPath = childLayoutPath
-                    
-                }
-            } else {
-                // not found
-            }
-
-            // re-use layout, just swap child content
-            //const parentRouterView = this.rootElem.querySelector('router-view');
-            /*
-            if (!this.layoutContainer) {
-                console.warn('<router-view> not found in existing layout');
-                return;
-            }
-
+            // schimb doar child
             if (match.matchedChildRoute) {
-                const Child = match.matchedChildRoute.component;
-                const childEl = new Child().getElement();
-                //parentRouterView.replaceWith(childEl);
-                this.layoutContainer.innerHTML = ''
-                this.layoutContainer.append(childEl)
-            } else {
-                parentRouterView.replaceWith(document.createTextNode(''));
-            }*/
+                const childLayoutPath = match.matchedChildRoute.path;
+
+                if (this.currentChildLayoutPath !== childLayoutPath) {
+                    let Child = match.matchedChildRoute.component;
+
+                    if (Child.constructor.name === 'AsyncFunction') {
+                        Child = await Child();
+                    }
+
+                    const childInstance = new Child();
+                    const childEl = await childInstance.getElement();
+                    this.layoutContainer.replaceChildren(childEl);
+                    this.currentChildLayoutPath = childLayoutPath;
+                }
+            }
         }
     }
+
 
 
     // Start the router: initial route render, listen to clicks

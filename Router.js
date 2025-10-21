@@ -165,8 +165,6 @@ export default class Router {
         }
     }
 
-
-
     // Start the router: initial route render, listen to clicks
     start() {
         this.route();
